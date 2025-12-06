@@ -4,10 +4,6 @@ import Signup from "./pages/Signup";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Chat from "./pages/Chat";
 
-function Dashboard() {
-  return <h1>Dashboard</h1>;
-}
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -23,14 +19,6 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Chat />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
             </ProtectedRoute>
           }
         />

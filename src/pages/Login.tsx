@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TextField, Button, Card, CardContent, Typography } from "@mui/material";
+import { TextField, Button, Card,Box,CardContent, Typography } from "@mui/material";
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
 
@@ -15,16 +15,27 @@ export default function Login() {
       const res = await api.post("/users/login", form);
       localStorage.setItem("token", res.data.access_token);
       alert("Login Successful!");
-      navigate("/dashboard");
+      navigate("/chat");
     } catch (err: any) {
       alert(err.response.data.detail);
     }
   };
 
-  return (
-    <Card sx={{ maxWidth: 400, margin: "80px auto", padding: "20px" }}>
+return (
+  <Box
+    sx={{
+      height: "100vh",
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: "#000000ff",
+    }}
+  >
+    <Card sx={{ width: 400, padding: "30px" }}>
       <CardContent>
-        <Typography variant="h5" textAlign="center">Login</Typography>
+        <Typography variant="h5" textAlign="center">
+          Login
+        </Typography>
 
         <TextField
           label="Username"
@@ -51,7 +62,12 @@ export default function Login() {
           onChange={handleChange}
         />
 
-        <Button variant="contained" fullWidth sx={{ mt: 2 }} onClick={handleSubmit}>
+        <Button
+          variant="contained"
+          fullWidth
+          sx={{ mt: 2 }}
+          onClick={handleSubmit}
+        >
           Login
         </Button>
 
@@ -60,5 +76,6 @@ export default function Login() {
         </Button>
       </CardContent>
     </Card>
-  );
+  </Box>
+);
 }
