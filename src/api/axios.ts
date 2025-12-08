@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "flighter-io-production.up.railway.app", // your FastAPI URL
+  baseURL: "https://flighter-io-production.up.railway.app", // your FastAPI URL
 });
 
 // Attach JWT in every request
