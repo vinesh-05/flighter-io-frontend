@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { Box, TextField, Button, Typography } from "@mui/material";
-// import ReactMarkdown from "react-markdown";
 import api from "../api/axios";
 import FlightCardList from "../components/FlightCardList";
+
 const extractPaymentUrl = (text: string) => {
   const regex = /(https?:\/\/[^\s]+)/g;
   const matches = text.match(regex);
 
   if (!matches) return null;
 
-  // Return ONLY Stripe/payment links
   return matches.find(url =>
     url.includes("stripe") ||
     url.includes("checkout") ||
@@ -20,155 +19,202 @@ const extractPaymentUrl = (text: string) => {
 export default function Chat() {
   const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
   const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);   // 👈 Added
 
-const sendMessage = async () => {
-  if (!input.trim()) return;
+  const sendMessage = async () => {
+    if (!input.trim()) return;
 
-  // Add user message
-  setMessages((prev) => [...prev, { sender: "user", text: input }]);
+    // Add user message
+    setMessages((prev) => [...prev, { sender: "user", text: input }]);
+    setIsTyping(true);   // 👈 Bot starts typing
 
-  try {
-    const res = await api.post("/chat/message", { message: input });
+    try {
+      const res = await api.post("/chat/message", { message: input });
 
-    // Extract backend fields
-    const bot_response = res.data.bot_response;
-    const flights = res.data.flights;
-    const origin = res.data.origin;
-    const destination = res.data.destination;
-    const date = res.data.date;
+      const bot_response = res.data.bot_response;
+      const flights = res.data.flights;
+      const origin = res.data.origin;
+      const destination = res.data.destination;
+      const date = res.data.date;
 
-    // --- Ensure bot text is always a STRING ---
-    let botText = bot_response;
+      let botText = bot_response;
 
-    // 🟡 Payment response object
-    if (typeof bot_response === "object") {
-      botText = `PAYMENT_DATA_JSON::${JSON.stringify(bot_response)}`;
+      if (typeof bot_response === "object") {
+        botText = `PAYMENT_DATA_JSON::${JSON.stringify(bot_response)}`;
+      }
+
+      if (flights && flights.length > 0) {
+        botText = `FLIGHT_DATA_JSON::${JSON.stringify(
+          { origin, destination, date, flights }
+        )}`;
+      }
+
+      setMessages((prev) => [...prev, { sender: "bot", text: botText }]);
+      setIsTyping(false);   // 👈 Bot done typing
+
+    } catch (err: any) {
+      setIsTyping(false);    // 👈 Stop typing even on error
+      setMessages((prev) => [
+        ...prev,
+        { sender: "bot", text: "Error: " + err.message }
+      ]);
     }
 
-    // 🔵 Flights response
-    if (flights && flights.length > 0) {
-      botText = `FLIGHT_DATA_JSON::${JSON.stringify(
-        { origin, destination, date, flights }
-      )}`;
-    }
+    setInput("");
+  };
 
-    // Store final bot message
-    setMessages((prev) => [...prev, { sender: "bot", text: botText }]);
-
-  } catch (err: any) {
-    setMessages((prev) => [
-      ...prev,
-      { sender: "bot", text: "Error: " + err.message }
-    ]);
-  }
-
-  setInput("");
-};
-
-return (
-  <Box 
-    sx={{ 
-      height: "100vh", 
-      width: "100vw",
-      display: "flex", 
-      flexDirection: "column",
-      background: "#f1f1f1"
-    }}
-  >
-
-    {/* Header */}
-    <Box 
-      sx={{ 
-        p: 2, 
-        background: "#1976d2", 
-        color: "white",
-        fontSize: "22px",
-        fontWeight: "bold"
+  return (
+    <Box
+      sx={{
+        height: "100vh",
+        width: "100vw",
+        display: "flex",
+        flexDirection: "column",
+        background: "#f1f1f1"
       }}
     >
-      Travel Assistant Chat
-    </Box>
 
-    {/* Chat messages area */}
-    <Box 
-      sx={{ 
-        flexGrow: 1,
-        overflowY: "auto", 
-        p: 2,
-        color: "black"
-      }}
-    >
-      {messages.map((m, i) => {
-        const text = String(m.text);
-        const paymentUrl = extractPaymentUrl(text);
-        const cleanedText = paymentUrl ? text.replace(paymentUrl, "") : text;
+      {/* Header */}
+      <Box
+        sx={{
+          p: 2,
+          background: "#1976d2",
+          color: "white",
+          fontSize: "22px",
+          fontWeight: "bold"
+        }}
+      >
+        Travel Assistant Chat
+      </Box>
 
-        // Flight cards detection
-        if (text.startsWith("FLIGHT_DATA_JSON::")) {
-          const data = JSON.parse(text.replace("FLIGHT_DATA_JSON::", ""));
+      {/* Chat messages area */}
+      <Box
+        sx={{
+          flexGrow: 1,
+          overflowY: "auto",
+          p: 2,
+          color: "black"
+        }}
+      >
+        {messages.map((m, i) => {
+          const text = String(m.text);
+          const paymentUrl = extractPaymentUrl(text);
+          const cleanedText = paymentUrl ? text.replace(paymentUrl, "") : text;
+
+          if (text.startsWith("FLIGHT_DATA_JSON::")) {
+            const data = JSON.parse(text.replace("FLIGHT_DATA_JSON::", ""));
+            return (
+              <Box key={i} sx={{ mb: 2 }}>
+                <FlightCardList data={data} />
+              </Box>
+            );
+          }
+
           return (
-            <Box key={i} sx={{ mb: 2 }}>
-              <FlightCardList data={data} />
+            <Box
+              key={i}
+              sx={{
+                textAlign: m.sender === "user" ? "right" : "left",
+                mb: 1,
+                p: 1.5,
+                maxWidth: "80%",
+                ml: m.sender === "user" ? "auto" : "0",
+                background: m.sender === "user" ? "#f1f1f1" : "white",
+                borderRadius: 2,
+                boxShadow: 1
+              }}
+            >
+              <Typography sx={{ whiteSpace: "pre-wrap" }}>
+                {cleanedText}
+              </Typography>
+
+              {paymentUrl && (
+                <Button
+                  variant="contained"
+                  color="warning"
+                  href={paymentUrl}
+                  target="_blank"
+                  sx={{ mt: 1 }}
+                >
+                  Pay Now
+                </Button>
+              )}
             </Box>
           );
-        }
+        })}
 
-        return (
+        {/* Typing animation */}
+        {isTyping && (
           <Box
-            key={i}
             sx={{
-              textAlign: m.sender === "user" ? "right" : "left",
-              mb: 1,
-              p: 1.5,
-              maxWidth: "80%",
-              ml: m.sender === "user" ? "auto" : "0",
-              background: m.sender === "user" ? "#f1f1f1" : "white",
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              mb: 2,
+              background: "white",
+              width: "70px",
+              px: 2,
+              py: 1,
               borderRadius: 2,
               boxShadow: 1
             }}
           >
-            <Typography sx={{ whiteSpace: "pre-wrap" }}>
-              {cleanedText}
-            </Typography>
-
-            {/* Payment Button */}
-            {paymentUrl && (
-              <Button
-                variant="contained"
-                color="warning"
-                href={paymentUrl}
-                target="_blank"
-                sx={{ mt: 1 }}
-              >
-                Pay Now
-              </Button>
-            )}
+            <span className="typing-dot"></span>
+            <span className="typing-dot"></span>
+            <span className="typing-dot"></span>
           </Box>
-        );
-      })}
-    </Box>
+        )}
+      </Box>
 
-    {/* Input area */}
-    <Box 
-      sx={{ 
-        display: "flex", 
-        p: 2, 
-        gap: 1, 
-        background: "white",
-        borderTop: "1px solid #f1f1f1"
-      }}
-    >
-      <TextField
-        fullWidth
-        label="Type a message..."
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-      />
-      <Button variant="contained" onClick={sendMessage}>
-        Send
-      </Button>
-    </Box>
+      {/* Input area */}
+      <Box
+        sx={{
+          display: "flex",
+          p: 2,
+          gap: 1,
+          background: "white",
+          borderTop: "1px solid #f1f1f1"
+        }}
+      >
+        <TextField
+          fullWidth
+          label="Type a message..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
+        />
+        <Button variant="contained" onClick={sendMessage}>
+          Send
+        </Button>
+      </Box>
 
-  </Box>
-);
+      {/* Typing bubble animation CSS */}
+      <style>
+        {`
+        .typing-dot {
+          width: 8px;
+          height: 8px;
+          background: #999;
+          border-radius: 50%;
+          display: inline-block;
+          animation: blink 1.4s infinite both;
+          margin-right: 3px;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes blink {
+          0% { opacity: 0.2; }
+          20% { opacity: 1; }
+          100% { opacity: 0.2; }
+        }
+        `}
+      </style>
+    </Box>
+  );
 }
