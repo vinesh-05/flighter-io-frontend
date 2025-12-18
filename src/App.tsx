@@ -3,7 +3,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Chat from "./pages/Chat";
-
+import Success from "./pages/Success";
 export default function App() {
   return (
     <BrowserRouter>
@@ -22,6 +22,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/success" element={<Success />} />
       </Routes>
 
     </BrowserRouter>
