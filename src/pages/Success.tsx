@@ -16,7 +16,7 @@ const Success = () => {
     axios
 axios
   .post(
-    "http://localhost:8000/flights/confirm-payment",
+    "https://flighter-io-frontend.vercel.app/flights/confirm-payment",
     { session_id: sessionId },
     {
       headers: {
