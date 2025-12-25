@@ -13,10 +13,9 @@ const Success = () => {
       return;
     }
 
-    axios
 axios
   .post(
-    "https://flighter-io-frontend.vercel.app/flights/confirm-payment",
+    "http://flighter-io-production.up.railway.app/flights/confirm-payment",
     { session_id: sessionId },
     {
       headers: {
