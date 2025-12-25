@@ -15,7 +15,7 @@ const Success = () => {
 
 axios
   .post(
-    "http://flighter-io-production.up.railway.app/confirm-payment",
+    "https://flighter-io-production.up.railway.app/flights/confirm-payment", //http://flighter-io-production.up.railway.app/confirm-payment
     { session_id: sessionId },
     {
       headers: {
