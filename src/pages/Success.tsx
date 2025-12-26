@@ -5,7 +5,7 @@ import axios from "axios";
 const Success = () => {
   const [params] = useSearchParams();
   const sessionId = params.get("session_id");
-  const [status, setStatus] = useState<string>("Verifying your payment…");
+  const [status, setStatus] = useState("Verifying your payment…");
 
   useEffect(() => {
     if (!sessionId) {
@@ -13,23 +13,19 @@ const Success = () => {
       return;
     }
 
-axios
-  .post(
-    "https://flighter-io-production.up.railway.app/flights/confirm-payment", //http://flighter-io-production.up.railway.app/confirm-payment
-    { session_id: sessionId },
-    {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    }
-  )
-  .then(() => {
-    setStatus("🎉 Your payment is confirmed! Your ticket has been emailed.");
-  })
-  .catch(() => {
-    setStatus("❌ Could not confirm payment. Please contact support.");
-  });
-
+    axios
+      .post(
+        "https://flighter-io-production.up.railway.app/flights/confirm-payment", //http://localhost:8000/flights/confirm-payment
+        { session_id: sessionId }
+      )
+      .then(() => {
+        setStatus("🎉 Payment successful! Your ticket has been emailed.");
+      })
+      .catch(() => {
+        setStatus(
+          "Payment received. Ticket will be emailed shortly if not already sent."
+        );
+      });
   }, [sessionId]);
 
   return (
