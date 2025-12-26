@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import axios from "axios";
 
 const Success = () => {
   const [params] = useSearchParams();
   const sessionId = params.get("session_id");
-  const [status, setStatus] = useState("Verifying your payment…");
+  const [status, setStatus] = useState("Processing your payment…");
 
   useEffect(() => {
     if (!sessionId) {
@@ -13,19 +12,8 @@ const Success = () => {
       return;
     }
 
-    axios
-      .post(
-        "https://flighter-io-production.up.railway.app/flights/confirm-payment", //http://localhost:8000/flights/confirm-payment
-        { session_id: sessionId }
-      )
-      .then(() => {
-        setStatus("🎉 Payment successful! Your ticket has been emailed.");
-      })
-      .catch(() => {
-        setStatus(
-          "Payment received. Ticket will be emailed shortly if not already sent."
-        );
-      });
+    // Stripe webhook handles confirmation + email
+    setStatus("🎉 Payment successful! Your ticket will be emailed shortly.");
   }, [sessionId]);
 
   return (
