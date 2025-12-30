@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, TextField, Button, Typography } from "@mui/material";
 import api from "../api/axios";
 import FlightCardList from "../components/FlightCardList";
+import { useNavigate } from "react-router-dom";
 
 const extractPaymentUrl = (text: string) => {
   const regex = /(https?:\/\/[^\s]+)/g;
@@ -20,6 +21,12 @@ export default function Chat() {
   const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);   // 👈 Added
+  const navigate = useNavigate();
+  const handleLogout = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  navigate("/login");
+};
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -80,12 +87,24 @@ export default function Chat() {
           p: 2,
           background: "#1976d2",
           color: "white",
-          fontSize: "22px",
-          fontWeight: "bold"
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
         }}
       >
-        Travel Assistant Chat
+        <Typography sx={{ fontSize: "22px", fontWeight: "bold" }}>
+          Travel Assistant Chat
+        </Typography>
+
+        <Button
+          variant="contained"
+          color="error"
+          onClick={handleLogout}
+        >
+          Logout
+        </Button>
       </Box>
+
 
       {/* Chat messages area */}
       <Box
