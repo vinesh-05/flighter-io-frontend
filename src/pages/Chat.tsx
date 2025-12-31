@@ -27,6 +27,31 @@ export default function Chat() {
   localStorage.removeItem("user");
   navigate("/login");
 };
+  const bookFlightByClick = async (flightId: string) => {
+  const msg = `book flight ${flightId}`;
+
+  setMessages((prev) => [...prev, { sender: "user", text: msg }]);
+  setIsTyping(true);
+
+  try {
+    const res = await api.post("/chat/message", { message: msg });
+
+    let botText = res.data.bot_response;
+
+    if (typeof botText === "object") {
+      botText = `PAYMENT_DATA_JSON::${JSON.stringify(botText)}`;
+    }
+
+    setMessages((prev) => [...prev, { sender: "bot", text: botText }]);
+  } catch (err: any) {
+    setMessages((prev) => [
+      ...prev,
+      { sender: "bot", text: "Error: " + err.message }
+    ]);
+  }
+
+  setIsTyping(false);
+};
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -124,7 +149,11 @@ export default function Chat() {
             const data = JSON.parse(text.replace("FLIGHT_DATA_JSON::", ""));
             return (
               <Box key={i} sx={{ mb: 2 }}>
-                <FlightCardList data={data} />
+                <FlightCardList
+                  data={data}
+                  onSelect={(flightId: string) => bookFlightByClick(flightId)}
+                    />
+
               </Box>
             );
           }
