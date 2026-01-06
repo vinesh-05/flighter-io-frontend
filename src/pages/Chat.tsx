@@ -27,6 +27,10 @@ export default function Chat() {
   localStorage.removeItem("user");
   navigate("/login");
 };
+const goToMyBookings = () => {
+  navigate("/my-bookings");
+};
+
   const bookFlightByClick = async (flightId: string) => {
   const msg = `book flight ${flightId}`;
 
@@ -118,8 +122,16 @@ export default function Chat() {
         }}
       >
         <Typography sx={{ fontSize: "22px", fontWeight: "bold" }}>
-          Travel Assistant Chat
+          Flighter-AI Chat
         </Typography>
+        <Button
+        variant="contained"
+        color="inherit"
+        onClick={goToMyBookings}
+        >
+        My Bookings
+      </Button>
+
 
         <Button
           variant="contained"

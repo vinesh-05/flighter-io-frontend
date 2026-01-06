@@ -4,6 +4,7 @@ import Signup from "./pages/Signup";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Chat from "./pages/Chat";
 import Success from "./pages/Success";
+import MyBookings from "./pages/myBookings";
 export default function App() {
   return (
     <BrowserRouter>
@@ -23,6 +24,8 @@ export default function App() {
           }
         />
         <Route path="/success" element={<Success />} />
+        <Route path="/my-bookings" element={<MyBookings />} />
+
       </Routes>
 
     </BrowserRouter>
