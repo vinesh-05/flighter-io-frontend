@@ -54,7 +54,7 @@ export default function MyBookings() {
     const url = window.URL.createObjectURL(blob);
 
     window.open(url);
-    };
+  };
 
   if (loading) {
     return (
@@ -64,64 +64,90 @@ export default function MyBookings() {
     );
   }
 
-  return (
-    <Box p={4}>
-      <Typography variant="h4" gutterBottom>
+ return (
+  <Box sx={{ minHeight: "100vh", background: "#f1f1f1" }}>
+    {/* 🔵 Header */}
+    <Box
+      sx={{
+        background: "#1976d2",
+        color: "white",
+        px: 4,
+        py: 2,
+      }}
+    >
+      <Typography variant="h5" fontWeight="bold">
         My Bookings
       </Typography>
+    </Box>
 
-      {bookings.length === 0 ? (
+    {/* ⚪ Content Area */}
+    <Box p={4}>
+      {loading ? (
+        <Box display="flex" justifyContent="center" mt={6}>
+          <CircularProgress />
+        </Box>
+      ) : bookings.length === 0 ? (
         <Typography>No bookings found.</Typography>
       ) : (
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Airline</TableCell>
-              <TableCell>Route</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Price</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Ticket</TableCell>
-            </TableRow>
-          </TableHead>
-
-          <TableBody>
-            {bookings.map((b) => (
-              <TableRow key={b.id}>
-                <TableCell>{b.airline}</TableCell>
-                <TableCell>
-                  {b.from} → {b.to}
-                </TableCell>
-                <TableCell>{b.date}</TableCell>
-                <TableCell>₹{b.price}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={b.status.toUpperCase()}
-                    color={b.status === "paid" ? "success" : "warning"}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  {b.has_ticket ? (
-                <Button
-                size="small"
-                variant="contained"
-                onClick={() => downloadTicket(b.id)}
-                >
-                Download
-                </Button>
-
-                  ) : (
-                    <Button size="small" disabled>
-                      —
-                    </Button>
-                  )}
-                </TableCell>
+        <Box
+          sx={{
+            background: "white",
+            borderRadius: 2,
+            boxShadow: 1,
+            overflow: "hidden",
+          }}
+        >
+          <Table>
+            <TableHead>
+              <TableRow sx={{ background: "#f5f5f5" }}>
+                <TableCell><b>Airline</b></TableCell>
+                <TableCell><b>Route</b></TableCell>
+                <TableCell><b>Date</b></TableCell>
+                <TableCell><b>Price</b></TableCell>
+                <TableCell><b>Status</b></TableCell>
+                <TableCell><b>Ticket</b></TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+
+            <TableBody>
+              {bookings.map((b) => (
+                <TableRow key={b.id}>
+                  <TableCell>{b.airline}</TableCell>
+                  <TableCell>
+                    {b.from} → {b.to}
+                  </TableCell>
+                  <TableCell>{b.date}</TableCell>
+                  <TableCell>₹{b.price}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={b.status.toUpperCase()}
+                      color={b.status === "paid" ? "success" : "warning"}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {b.has_ticket ? (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => downloadTicket(b.id)}
+                      >
+                        Download
+                      </Button>
+                    ) : (
+                      <Button size="small" disabled>
+                        —
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
       )}
     </Box>
-  );
+  </Box>
+);
+
 }

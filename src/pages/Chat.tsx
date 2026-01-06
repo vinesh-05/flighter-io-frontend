@@ -110,28 +110,30 @@ const goToMyBookings = () => {
       }}
     >
 
-      {/* Header */}
-      <Box
-        sx={{
-          p: 2,
-          background: "#1976d2",
-          color: "white",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center"
-        }}
-      >
-        <Typography sx={{ fontSize: "22px", fontWeight: "bold" }}>
-          Flighter-AI Chat
-        </Typography>
-        <Button
-        variant="contained"
-        color="inherit"
-        onClick={goToMyBookings}
-        >
-        My Bookings
-      </Button>
+    {/* Header */}
+    <Box
+      sx={{
+        p: 2,
+        background: "#1976d2",
+        color: "white",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center"
+      }}
+    >
+      <Typography sx={{ fontSize: "22px", fontWeight: "bold" }}>
+        Flighter-AI Chat
+      </Typography>
 
+      {/* Right-side buttons */}
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={goToMyBookings}
+        >
+          My Bookings
+        </Button>
 
         <Button
           variant="contained"
@@ -141,6 +143,7 @@ const goToMyBookings = () => {
           Logout
         </Button>
       </Box>
+    </Box>
 
 
       {/* Chat messages area */}
