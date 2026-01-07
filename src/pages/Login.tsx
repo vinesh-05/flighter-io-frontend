@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ username: "", email: "", password: "" });
+  const [form, setForm] = useState({ identifier: "", password: "" });
 
   const handleChange = (e: any) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -38,20 +38,13 @@ return (
         </Typography>
 
         <TextField
-          label="Username"
-          name="username"
+          label="Username or email"
+          name="identifier"
           fullWidth
           margin="normal"
           onChange={handleChange}
         />
 
-        <TextField
-          label="Email"
-          name="email"
-          fullWidth
-          margin="normal"
-          onChange={handleChange}
-        />
 
         <TextField
           label="Password"
