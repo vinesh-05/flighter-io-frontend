@@ -3,13 +3,21 @@ import { Box, TextField, Button, Typography } from "@mui/material";
 import api from "../api/axios";
 import FlightCardList from "../components/FlightCardList";
 import { useNavigate } from "react-router-dom";
+import {
+  Avatar,
+  IconButton,
+  Menu,
+  MenuItem,
+  Divider
+} from "@mui/material";
+
 
 const extractPaymentUrl = (text: string) => {
   const regex = /(https?:\/\/[^\s]+)/g;
   const matches = text.match(regex);
-
+  
   if (!matches) return null;
-
+  
   return matches.find(url =>
     url.includes("stripe") ||
     url.includes("checkout") ||
@@ -18,10 +26,22 @@ const extractPaymentUrl = (text: string) => {
 };
 
 export default function Chat() {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
   const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);   // 👈 Added
   const navigate = useNavigate();
+    const username = localStorage.getItem("name");
+    const email = localStorage.getItem("email");
   const handleLogout = () => {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
@@ -125,24 +145,61 @@ const goToMyBookings = () => {
         Flighter-AI Chat
       </Typography>
 
-      {/* Right-side buttons */}
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <Button
-          variant="contained"
-          color="error"
-          onClick={goToMyBookings}
-        >
-          My Bookings
-        </Button>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        {/* User info */}
+        <Box sx={{ textAlign: "right" }}>
+          <Typography sx={{ fontSize: "14px", fontWeight: "bold" }}>
+            {username}
+          </Typography>
+          <Typography sx={{ fontSize: "12px", opacity: 0.8 }}>
+            {email}
+          </Typography>
+        </Box>
 
-        <Button
-          variant="contained"
-          color="error"
-          onClick={handleLogout}
+        {/* Profile avatar */}
+        <IconButton onClick={handleMenuOpen}>
+          <Avatar sx={{ bgcolor: "#1565c0" }}>
+            {username?.[0]?.toUpperCase()}
+          </Avatar>
+        </IconButton>
+
+        {/* Dropdown menu */}
+        <Menu
+          anchorEl={anchorEl}
+          open={open}
+          onClose={handleMenuClose}
+          anchorOrigin={{
+            vertical: "bottom",
+            horizontal: "right",
+          }}
+          transformOrigin={{
+            vertical: "top",
+            horizontal: "right",
+          }}
         >
-          Logout
-        </Button>
+          <MenuItem
+            onClick={() => {
+              handleMenuClose();
+              goToMyBookings();
+            }}
+          >
+            My Bookings
+          </MenuItem>
+
+          <Divider />
+
+          <MenuItem
+            onClick={() => {
+              handleMenuClose();
+              handleLogout();
+            }}
+            sx={{ color: "error.main" }}
+          >
+            Logout
+          </MenuItem>
+        </Menu>
       </Box>
+
     </Box>
 
 
