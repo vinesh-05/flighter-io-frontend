@@ -12,6 +12,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import api from "../api/axios";
+import { useNavigate } from "react-router-dom";
 
 interface Booking {
   id: number;
@@ -28,7 +29,10 @@ interface Booking {
 export default function MyBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const navigate = useNavigate()
+  const goBack = () => {
+    navigate("/chat");
+  };
   useEffect(() => {
     const fetchBookings = async () => {
       try {
@@ -74,7 +78,22 @@ export default function MyBookings() {
         px: 4,
         py: 2,
       }}
-    >
+    > 
+      <Button
+      sx={{ position: "absolute", bottom: "90",
+        left: 1540, // above input
+         background: "#ff0000ff", 
+         color: "white", 
+         boxShadow: 3,
+          "&:hover": { 
+            background: "#d44747ff", 
+          },
+         }}
+          onClick={() => goBack()}
+           >
+            Home
+          </Button>
+          
       <Typography variant="h5" fontWeight="bold">
         My Bookings
       </Typography>

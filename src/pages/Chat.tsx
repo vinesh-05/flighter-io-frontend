@@ -10,6 +10,11 @@ import {
   MenuItem,
   Divider
 } from "@mui/material";
+import { useRef, useEffect } from "react";
+import { Virtuoso } from "react-virtuoso";
+import type { VirtuosoHandle } from "react-virtuoso";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+
 
 
 const extractPaymentUrl = (text: string) => {
@@ -28,6 +33,18 @@ const extractPaymentUrl = (text: string) => {
 export default function Chat() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const isAutoScrollingRef = useRef(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  useEffect(() => {
+    api.get("/chat/history")
+    .then(res => {
+      setMessages(res.data);
+    })
+    .catch(() => {
+      setMessages([]);
+    });
+  }, []);
   
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -40,13 +57,26 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);   // 👈 Added
   const navigate = useNavigate();
-    const username = localStorage.getItem("name");
-    const email = localStorage.getItem("email");
+  const username = localStorage.getItem("name");
+  const email = localStorage.getItem("email");
   const handleLogout = () => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
-  navigate("/login");
-};
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
+  useEffect(() => {
+    if (!messages.length) return;
+
+    // 🚫 Do NOT force scroll if user interrupted
+    if (!isAtBottom || isAutoScrollingRef.current) return;
+
+    virtuosoRef.current?.scrollToIndex({
+      index: messages.length-1,
+      align: "center",
+      behavior: "smooth",
+    });
+  }, [messages, isAtBottom]);
+
 const goToMyBookings = () => {
   navigate("/my-bookings");
 };
@@ -56,6 +86,7 @@ const goToMyBookings = () => {
 
   setMessages((prev) => [...prev, { sender: "user", text: msg }]);
   setIsTyping(true);
+
 
   try {
     const res = await api.post("/chat/message", { message: msg });
@@ -79,11 +110,21 @@ const goToMyBookings = () => {
 
   const sendMessage = async () => {
     if (!input.trim()) return;
+    const userMessage = input;   // store before clearing
 
+  // 👇 clear instantly
+    setInput("");
     // Add user message
-    setMessages((prev) => [...prev, { sender: "user", text: input }]);
+    setMessages((prev) => [...prev, { sender: "user", text: userMessage }]);
     setIsTyping(true);   // 👈 Bot starts typing
 
+      requestAnimationFrame(() => {
+        virtuosoRef.current?.scrollToIndex({
+          index: messages.length-1,
+          align: "center",
+          behavior: "smooth",
+        });
+      });
     try {
       const res = await api.post("/chat/message", { message: input });
 
@@ -109,14 +150,14 @@ const goToMyBookings = () => {
       setIsTyping(false);   // 👈 Bot done typing
 
     } catch (err: any) {
-      setIsTyping(false);    // 👈 Stop typing even on error
+      // setIsTyping(false);    // 👈 Stop typing even on error
       setMessages((prev) => [
         ...prev,
         { sender: "bot", text: "Error: " + err.message }
       ]);
-    }
-
-    setInput("");
+    } finally {
+    setIsTyping(false);
+  }
   };
 
   return (
@@ -203,48 +244,60 @@ const goToMyBookings = () => {
     </Box>
 
 
-      {/* Chat messages area */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          overflowY: "auto",
-          p: 2,
-          color: "black"
-        }}
-      >
-        {messages.map((m, i) => {
+    <Box
+      sx={{
+        flexGrow: 1,
+        color: "black"
+      }}
+    >
+      <Virtuoso
+        ref={virtuosoRef}
+        data={messages}
+        atBottomStateChange={setIsAtBottom}
+        followOutput={false}
+        itemContent={(_, m) => {
           const text = String(m.text);
           const paymentUrl = extractPaymentUrl(text);
           const cleanedText = paymentUrl ? text.replace(paymentUrl, "") : text;
 
           if (text.startsWith("FLIGHT_DATA_JSON::")) {
-            const data = JSON.parse(text.replace("FLIGHT_DATA_JSON::", ""));
+            let data;
+            try {
+              data = JSON.parse(text.replace("FLIGHT_DATA_JSON::", ""));
+            } catch {
+              return null;
+            }
+
+            if (!data || !Array.isArray(data.flights)) return null;
+
             return (
-              <Box key={i} sx={{ mb: 2 }}>
+              <Box sx={{ mb: 2 }}>
                 <FlightCardList
                   data={data}
-                  onSelect={(flightId: string) => bookFlightByClick(flightId)}
-                    />
-
+                  onSelect={(flightId: string) =>
+                    bookFlightByClick(flightId)
+                  }
+                />
               </Box>
             );
           }
 
           return (
             <Box
-              key={i}
-              sx={{
-                textAlign: m.sender === "user" ? "right" : "left",
-                mb: 1,
-                p: 1.5,
-                maxWidth: "80%",
-                ml: m.sender === "user" ? "auto" : "0",
-                background: m.sender === "user" ? "#f1f1f1" : "white",
-                borderRadius: 2,
-                boxShadow: 1
-              }}
+            sx={{
+              textAlign: m.sender === "user" ? "right" : "left",
+              mb: 1,
+              px: 1.5,
+              py:1,
+              maxWidth: "80%",
+              ml: m.sender === "user" ? "auto" : "0",
+              background: m.sender === "user" ? "#f1f1f1" : "white",
+              borderRadius: 2,
+              boxShadow: 1
+            }}
             >
-              <Typography sx={{ whiteSpace: "pre-wrap" }}>
+              <Typography sx={{ whiteSpace: "pre-wrap"
+               }}>
                 {cleanedText}
               </Typography>
 
@@ -261,30 +314,68 @@ const goToMyBookings = () => {
               )}
             </Box>
           );
-        })}
+        }}
+        components={{
+          Footer: () =>(
+          <>
+            {isTyping && (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  mb: 2,
+                  background: "white",
+                  width: "70px",
+                  px: 2,
+                  py: 1,
+                  borderRadius: 2,
+                  boxShadow: 1
+                }}
+              >
+                <span className="typing-dot"></span>
+                <span className="typing-dot"></span>
+                <span className="typing-dot"></span>
+              </Box>
+            )}
+        {/* 👇 THIS IS THE GAP ABOVE INPUT */}
+      <Box sx={{ height: 500 }} />
+      </>
+          )
+          }}
+      />
+    </Box>
+            {!isAtBottom && (
+      <IconButton
+      onClick={() => {
+        isAutoScrollingRef.current = true;
 
-        {/* Typing animation */}
-        {isTyping && (
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              mb: 2,
-              background: "white",
-              width: "70px",
-              px: 2,
-              py: 1,
-              borderRadius: 2,
-              boxShadow: 1
-            }}
-          >
-            <span className="typing-dot"></span>
-            <span className="typing-dot"></span>
-            <span className="typing-dot"></span>
-          </Box>
-        )}
-      </Box>
+        virtuosoRef.current?.scrollToIndex({
+          index: messages.length-1,
+          align: "center",
+          behavior: "smooth",
+        });
+
+        // allow interruption after animation settles
+        setTimeout(() => {
+          isAutoScrollingRef.current = false;
+        }, 300);
+      }}
+      sx={{ position: "absolute", bottom: 90,
+        left: 800, // above input
+         background: "#1976d2", 
+         color: "white", 
+         boxShadow: 3,
+          "&:hover": { 
+            background: "#1565c0", 
+          },
+         }}
+    >
+      <ArrowDownwardIcon />
+    </IconButton>
+
+    )}
+
 
       {/* Input area */}
       <Box
