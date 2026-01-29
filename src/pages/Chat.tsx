@@ -14,6 +14,8 @@ import { useRef, useEffect } from "react";
 import { Virtuoso } from "react-virtuoso";
 import type { VirtuosoHandle } from "react-virtuoso";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import BookingConfigModal from "../components/BookingConfigModal";
+import PassengerDetailsModal from "../components/PassengerDetailsModal";
 
 
 
@@ -31,6 +33,24 @@ const extractPaymentUrl = (text: string) => {
 };
 
 export default function Chat() {
+const [selectedFlight, setSelectedFlight] = useState<any>(null);
+const [bookingConfigOpen, setBookingConfigOpen] = useState(false);
+const [passengerModalOpen, setPassengerModalOpen] = useState(false);
+
+type BookingConfig = {
+  tripType: "one_way" | "round_trip";
+  adults: number;
+  children: number;
+  infants: number;
+};
+
+const [bookingConfig, setBookingConfig] = useState<BookingConfig>({
+  tripType: "one_way",
+  adults: 1,
+  children: 0,
+  infants: 0
+});
+
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
@@ -81,32 +101,10 @@ const goToMyBookings = () => {
   navigate("/my-bookings");
 };
 
-  const bookFlightByClick = async (flightId: string) => {
-  const msg = `book flight ${flightId}`;
-
-  setMessages((prev) => [...prev, { sender: "user", text: msg }]);
-  setIsTyping(true);
-
-
-  try {
-    const res = await api.post("/chat/message", { message: msg });
-
-    let botText = res.data.bot_response;
-
-    if (typeof botText === "object") {
-      botText = `PAYMENT_DATA_JSON::${JSON.stringify(botText)}`;
-    }
-
-    setMessages((prev) => [...prev, { sender: "bot", text: botText }]);
-  } catch (err: any) {
-    setMessages((prev) => [
-      ...prev,
-      { sender: "bot", text: "Error: " + err.message }
-    ]);
-  }
-
-  setIsTyping(false);
-};
+  const bookFlightByClick = (flight: any) => {
+    setSelectedFlight(flight);
+    setBookingConfigOpen(true);
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -197,6 +195,7 @@ const goToMyBookings = () => {
           </Typography>
         </Box>
 
+
         {/* Profile avatar */}
         <IconButton onClick={handleMenuOpen}>
           <Avatar sx={{ bgcolor: "#1565c0" }}>
@@ -274,8 +273,8 @@ const goToMyBookings = () => {
               <Box sx={{ mb: 2 }}>
                 <FlightCardList
                   data={data}
-                  onSelect={(flightId: string) =>
-                    bookFlightByClick(flightId)
+                  onSelect={(flight: any) =>
+                    bookFlightByClick(flight)
                   }
                 />
               </Box>
@@ -415,17 +414,34 @@ const goToMyBookings = () => {
           display: inline-block;
           animation: blink 1.4s infinite both;
           margin-right: 3px;
-        }
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-        @keyframes blink {
-          0% { opacity: 0.2; }
-          20% { opacity: 1; }
-          100% { opacity: 0.2; }
-        }
-        `}
+          }
+          .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+          .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+          
+          @keyframes blink {
+            0% { opacity: 0.2; }
+            20% { opacity: 1; }
+            100% { opacity: 0.2; }
+            }
+            `}
       </style>
+<BookingConfigModal
+  open={bookingConfigOpen}
+  onClose={() => setBookingConfigOpen(false)}
+  config={bookingConfig}
+  setConfig={setBookingConfig}
+  onContinue={() => {
+    setBookingConfigOpen(false);
+    setPassengerModalOpen(true);
+  }}
+/>
+<PassengerDetailsModal
+  open={passengerModalOpen}
+  onClose={() => setPassengerModalOpen(false)}
+  flight={selectedFlight}
+  bookingConfig={bookingConfig}
+/>
+
     </Box>
   );
 }

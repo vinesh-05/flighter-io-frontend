@@ -1,8 +1,8 @@
 import axios from "axios";
-// const LOCAL_FASTAPI_URL=import.meta.env.VITE_LOCAL_FASTAPI_URL;
-const DEP_FASTAPI_URL=import.meta.env.VITE_DEP_FASTAPI_URL;
+const LOCAL_FASTAPI_URL=import.meta.env.VITE_LOCAL_FASTAPI_URL;
+// const DEP_FASTAPI_URL=import.meta.env.VITE_DEP_FASTAPI_URL;
 const api = axios.create({
-  baseURL: DEP_FASTAPI_URL,
+  baseURL: LOCAL_FASTAPI_URL,
 });
 
 // Attach JWT ONLY for protected routes
