@@ -16,6 +16,7 @@ import type { VirtuosoHandle } from "react-virtuoso";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import BookingConfigModal from "../components/BookingConfigModal";
 import PassengerDetailsModal from "../components/PassengerDetailsModal";
+import UploadPassengerDetailsDialog from "../components/UploadPassengerDetails";
 
 
 
@@ -36,6 +37,7 @@ export default function Chat() {
 const [selectedFlight, setSelectedFlight] = useState<any>(null);
 const [bookingConfigOpen, setBookingConfigOpen] = useState(false);
 const [passengerModalOpen, setPassengerModalOpen] = useState(false);
+const [uploadDetailsOpen, setUploadDetailsOpen] = useState(false);
 
 type BookingConfig = {
   tripType: "one_way" | "round_trip";
@@ -84,6 +86,20 @@ const [bookingConfig, setBookingConfig] = useState<BookingConfig>({
     localStorage.removeItem("user");
     navigate("/login");
   };
+
+  useEffect(() => {
+  const shouldOpen = localStorage.getItem(
+    "open_upload_passenger_details"
+  );
+
+  if (shouldOpen === "true") {
+    setUploadDetailsOpen(true);
+    localStorage.removeItem(
+      "open_upload_passenger_details"
+    );
+  }
+}, []);
+
   useEffect(() => {
     if (!messages.length) return;
 
@@ -225,6 +241,14 @@ const goToMyBookings = () => {
           >
             My Bookings
           </MenuItem>
+            <MenuItem
+          onClick={() => {
+            handleMenuClose();
+            setUploadDetailsOpen(true); // 👈 OPEN UPLOAD DIALOG
+          }}
+        >
+          Upload Passenger Details
+        </MenuItem>
 
           <Divider />
 
@@ -440,6 +464,15 @@ const goToMyBookings = () => {
   onClose={() => setPassengerModalOpen(false)}
   flight={selectedFlight}
   bookingConfig={bookingConfig}
+/>
+
+<UploadPassengerDetailsDialog
+  open={uploadDetailsOpen}
+  onClose={() => setUploadDetailsOpen(false)}
+  onSuccess={() => {
+    // optional: later we can refetch saved passengers
+    // for now, just close is enough
+  }}
 />
 
     </Box>

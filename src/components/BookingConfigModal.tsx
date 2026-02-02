@@ -46,6 +46,7 @@ export default function BookingConfigModal({
     });
   };
 
+  // ✅ Backend-aligned validation
   const isValid =
     config.adults >= 1 &&
     config.infants <= config.adults &&
@@ -79,7 +80,7 @@ export default function BookingConfigModal({
 
         {/* Passenger Counters */}
         <PassengerCounter
-          label="Adults (16+)"
+          label="Adults (12+)"
           count={config.adults}
           min={1}
           onIncrease={() => updateCount("adults", 1)}
@@ -87,14 +88,14 @@ export default function BookingConfigModal({
         />
 
         <PassengerCounter
-          label="Children (7–15)"
+          label="Children (2–11)"
           count={config.children}
           onIncrease={() => updateCount("children", 1)}
           onDecrease={() => updateCount("children", -1)}
         />
 
         <PassengerCounter
-          label="Infants (≤6)"
+          label="Infants (Under 2)"
           count={config.infants}
           onIncrease={() => updateCount("infants", 1)}
           onDecrease={() => updateCount("infants", -1)}
@@ -105,7 +106,7 @@ export default function BookingConfigModal({
           <Typography color="error" sx={{ mt: 2, fontSize: 13 }}>
             • At least 1 adult is required  
             <br />
-            • Infants cannot exceed adults
+            • Number of infants cannot exceed adults
           </Typography>
         )}
       </DialogContent>

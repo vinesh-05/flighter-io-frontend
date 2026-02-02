@@ -4,22 +4,28 @@ import {
   DialogContent,
   DialogActions,
   Box,
+  Menu,
   Button,
   TextField,
-  Typography,
+  // Typography,
   MenuItem,
   Divider
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 
+type Gender = "MALE" | "FEMALE" | "OTHER";
+type PassengerType = "ADULT" | "CHILD" | "INFANT";
+
 type Passenger = {
-  type: "adult" | "child" | "infant";
-  name: string;
-  age: number;
+  full_name: string;
+  dob: string;
+  gender: Gender;
+
   email?: string;
   phone?: string;
   address?: string;
+
   guardian_index?: number;
 };
 
@@ -35,6 +41,21 @@ type Props = {
   };
 };
 
+/* ---------- HELPERS ---------- */
+
+function getPassengerType(dob: string, travelDate: string): PassengerType {
+  const birth = new Date(dob);
+  const travel = new Date(travelDate);
+
+  let age = travel.getFullYear() - birth.getFullYear();
+  const m = travel.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && travel.getDate() < birth.getDate())) age--;
+
+  if (age < 2) return "INFANT";
+  if (age < 12) return "CHILD";
+  return "ADULT";
+}
+
 export default function PassengerDetailsModal({
   open,
   onClose,
@@ -43,40 +64,33 @@ export default function PassengerDetailsModal({
 }: Props) {
   const [passengers, setPassengers] = useState<Passenger[]>([]);
   const [loading, setLoading] = useState(false);
+  const [savedPassengers, setSavedPassengers] = useState<Passenger[]>([]);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [activePassengerIndex, setActivePassengerIndex] = useState<number | null>(null);
+  const [showAutofillDialog, setShowAutofillDialog] = useState(false);
 
   /* ---------- INIT PASSENGERS ---------- */
 
   useEffect(() => {
     if (!open) return;
+api.get("/details/get")
+  .then(res => {
+    console.log("Saved passengers:", res.data);
+    setSavedPassengers(res.data);
+  });
 
     const list: Passenger[] = [];
 
-    for (let i = 0; i < bookingConfig.adults; i++) {
-      list.push({
-        type: "adult",
-        name: "",
-        age: 18,
-        email: "",
-        phone: "",
-        address: ""
-      });
-    }
+    const total =
+      bookingConfig.adults +
+      bookingConfig.children +
+      bookingConfig.infants;
 
-    for (let i = 0; i < bookingConfig.children; i++) {
+    for (let i = 0; i < total; i++) {
       list.push({
-        type: "child",
-        name: "",
-        age: 7,
-        guardian_index: 0
-      });
-    }
-
-    for (let i = 0; i < bookingConfig.infants; i++) {
-      list.push({
-        type: "infant",
-        name: "",
-        age: 1,
-        guardian_index: 0
+        full_name: "",
+        dob: "",
+        gender: "MALE"
       });
     }
 
@@ -84,6 +98,27 @@ export default function PassengerDetailsModal({
   }, [open, bookingConfig]);
 
   /* ---------- HELPERS ---------- */
+
+  const autofillPassenger = (index: number, data: Passenger) => {
+  setPassengers(prev =>
+    prev.map((p, i) =>
+      i === index
+        ? {
+            ...p,
+            full_name: data.full_name,
+            dob: String(data.dob).slice(0, 10), // 🔥 IMPORTANT
+            gender: data.gender,
+            email: data.email,
+            phone: data.phone,
+            address: data.address,
+            guardian_index: undefined
+          }
+        : p
+    )
+  );
+};
+
+
 
   const updatePassenger = (
     index: number,
@@ -96,25 +131,27 @@ export default function PassengerDetailsModal({
   };
 
   const adultIndices = passengers
-    .map((p, i) => (p.type === "adult" ? i : null))
+    .map((p, i) =>
+      p.dob && getPassengerType(p.dob, flight.date) === "ADULT"
+        ? i
+        : null
+    )
     .filter((i) => i !== null) as number[];
 
-  const isValid = passengers.every((p) => {
-    if (!p.name || p.age === undefined) return false;
+  const isValid = passengers.every((p,_idx) => {
+    if (!p.full_name || !p.dob) return false;
 
-    if (p.type === "adult") {
-      return p.age >= 16 && !!p.email && !!p.phone;
+   const type = p.dob
+  ? getPassengerType(p.dob, flight.date)
+  : null;
+
+    if (!type) return false;
+
+    if (type === "ADULT") {
+      return !!p.email && !!p.phone && !!p.address;
     }
 
-    if (p.type === "child") {
-      return p.age > 6 && p.age < 16 && p.guardian_index !== undefined;
-    }
-
-    if (p.type === "infant") {
-      return p.age <= 6 && p.guardian_index !== undefined;
-    }
-
-    return true;
+    return p.guardian_index !== undefined;
   });
 
   /* ---------- SUBMIT ---------- */
@@ -123,95 +160,54 @@ export default function PassengerDetailsModal({
     setLoading(true);
 
     try {
-      // 1️⃣ Validate primary adult
-      const primaryAdult = passengers.find((p) => p.type === "adult");
+      const primaryAdultIndex = passengers.findIndex(
+  (p) =>
+    p.dob &&
+    getPassengerType(p.dob, flight.date) === "ADULT"
+);
 
-      if (!primaryAdult?.email) {
-        alert("At least one adult must have a valid email");
-        setLoading(false);
+      if (primaryAdultIndex === -1) {
+        alert("At least one adult is required");
         return;
       }
 
-      // 2️⃣ Validate guardians
-      for (const p of passengers) {
-        if (p.type !== "adult") {
-          if (
-            p.guardian_index === undefined ||
-            passengers[p.guardian_index]?.type !== "adult"
-          ) {
-            alert("Each child/infant must have a valid adult guardian");
-            setLoading(false);
-            return;
-          }
+      const payload = {
+        flight: {
+          flight_id: flight.flight_id,
+          airline: flight.airline,
+          price: flight.price,
+          date: flight.date,
+          origin: flight.origin,
+          destination: flight.destination,
+          departure_time: flight.departure_time,
+          arrival_time: flight.arrival_time
+        },
+        trip_type: bookingConfig.tripType,
+        booking_contact_email:
+          passengers[primaryAdultIndex].email!,
+        passengers
+      };
+
+      const bookingRes = await api.post(
+        "/bookings/create",
+        payload
+      );
+
+      const stripeRes = await api.post(
+        "/payments/create-session",
+        {
+          booking_id: bookingRes.data.booking_id
         }
-      }
+      );
 
-      // 3️⃣ Sanitize ALL numeric fields
-const sanitizedPassengers = passengers.map((p) => {
-  const clean: any = {
-    type: p.type,
-    name: p.name,
-    age: Number(p.age)
-  };
-
-  if (p.type === "adult") {
-    // 🔥 FORCE phone & email for adults
-    clean.email = p.email?.trim();
-    clean.phone = p.phone?.trim();
-  }
-
-  if (p.address?.trim()) clean.address = p.address;
-
-  if (p.guardian_index !== undefined) {
-    clean.guardian_index = Number(p.guardian_index);
-  }
-
-  return clean;
-});
-
-
-    const payload = {
-    flight: {
-        flight_id: flight.flight_id,
-        airline: flight.airline,
-        price: flight.price,          // already a number
-        date: flight.date,            // MUST be non-null
-        origin: flight.origin,
-        destination: flight.destination,
-        departure_time: flight.departure_time,
-        arrival_time: flight.arrival_time
-    },
-    trip_type: bookingConfig.tripType,
-    booking_contact_email: primaryAdult.email!,
-    passengers: sanitizedPassengers
-    };
-      console.log("PAYLOAD:", JSON.stringify(payload, null, 2));
-      console.log("FLIGHT DATE:", payload.flight.date);
-    console.log("FLIGHT PRICE:", payload.flight.price, typeof payload.flight.price);
-
-      // 4️⃣ Create booking
-      const bookingRes = await api.post("/bookings/create", payload);
-
-      // 5️⃣ Create Stripe session
-      const stripeRes = await api.post("/payments/create-session", {
-        booking_id: bookingRes.data.booking_id
-      });
-
-      // 6️⃣ Redirect to Stripe
       window.location.href = stripeRes.data.checkout_url;
     } catch (err: any) {
       const detail = err.response?.data?.detail;
-      let message = "Booking failed";
-
-      if (typeof detail === "string") {
-        message = detail;
-      } else if (Array.isArray(detail)) {
-        message = detail.map((d) => d.msg).join("\n");
-      } else if (typeof detail === "object") {
-        message = JSON.stringify(detail, null, 2);
-      }
-
-      alert(message);
+      alert(
+        typeof detail === "string"
+          ? detail
+          : JSON.stringify(detail, null, 2)
+      );
     } finally {
       setLoading(false);
     }
@@ -224,97 +220,139 @@ const sanitizedPassengers = passengers.map((p) => {
       <DialogTitle>Passenger Details</DialogTitle>
 
       <DialogContent>
-        {passengers.map((p, index) => (
-          <Box
-            key={index}
-            sx={{
-              mb: 3,
-              p: 2,
-              border: "1px solid #eee",
-              borderRadius: 2
-            }}
-          >
-            <Typography sx={{ fontWeight: 600, mb: 1 }}>
-              {p.type.toUpperCase()} {index + 1}
-            </Typography>
+        {passengers.map((p, index) => {
+      const type = p.dob
+        ? getPassengerType(p.dob, flight.date)
+        : null;
 
-            <TextField
-              fullWidth
-              label="Name"
-              sx={{ mb: 2 }}
-              value={p.name}
-              onChange={(e) =>
-                updatePassenger(index, "name", e.target.value)
-              }
-            />
+      console.log("Passenger", index + 1, {
+        dob: p.dob,
+        flightDate: flight.date,
+        computedType: type
+      });
 
-            <TextField
-              fullWidth
-              type="number"
-              label="Age"
-              sx={{ mb: 2 }}
-              value={p.age}
-              onChange={(e) =>
-                updatePassenger(index, "age", Number(e.target.value))
-              }
-            />
 
-            {p.type === "adult" && (
-              <>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  sx={{ mb: 2 }}
-                  value={p.email}
-                  onChange={(e) =>
-                    updatePassenger(index, "email", e.target.value)
-                  }
-                />
 
-                <TextField
-                  fullWidth
-                  label="Phone"
-                  sx={{ mb: 2 }}
-                  value={p.phone}
-                  onChange={(e) =>
-                    updatePassenger(index, "phone", e.target.value)
-                  }
-                />
+          return (
+            <Box
+              key={index}
+              sx={{
+                mb: 3,
+                p: 2,
+                border: "1px solid #eee",
+                borderRadius: 2
+              }}
+            >
 
-                <TextField
-                  fullWidth
-                  label="Address"
-                  value={p.address}
-                  onChange={(e) =>
-                    updatePassenger(index, "address", e.target.value)
-                  }
-                />
-              </>
-            )}
+              
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setActivePassengerIndex(index);
+                setShowAutofillDialog(true);
+              }}
+            >
+              Autofill
+            </Button>
 
-            {p.type !== "adult" && (
+
+
+
+              <TextField
+                fullWidth
+                label="Full Name"
+                sx={{ mb: 2 }}
+                value={p.full_name}
+                onChange={(e) =>
+                  updatePassenger(index, "full_name", e.target.value)
+                }
+              />
+
+              <TextField
+                fullWidth
+                type="date"
+                label="Date of Birth"
+                InputLabelProps={{ shrink: true }}
+                sx={{ mb: 2 }}
+                value={p.dob}
+                onChange={(e) =>
+                  updatePassenger(index, "dob", e.target.value)
+                }
+              />
+
               <TextField
                 select
                 fullWidth
-                label="Guardian"
-                value={p.guardian_index ?? ""}
+                label="Gender"
+                sx={{ mb: 2 }}
+                value={p.gender}
                 onChange={(e) =>
-                  updatePassenger(
-                    index,
-                    "guardian_index",
-                    Number(e.target.value)
-                  )
+                  updatePassenger(index, "gender", e.target.value)
                 }
               >
-                {adultIndices.map((i) => (
-                  <MenuItem key={i} value={i}>
-                    {passengers[i]?.name || `Adult ${i + 1}`}
-                  </MenuItem>
-                ))}
+                <MenuItem value="MALE">Male</MenuItem>
+                <MenuItem value="FEMALE">Female</MenuItem>
+                <MenuItem value="OTHER">Other</MenuItem>
               </TextField>
-            )}
-          </Box>
-        ))}
+
+              {type === "ADULT" && (
+                <>
+                  <TextField
+                    fullWidth
+                    label="Email"
+                    sx={{ mb: 2 }}
+                    value={p.email || ""}
+                    onChange={(e) =>
+                      updatePassenger(index, "email", e.target.value)
+                    }
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Phone"
+                    sx={{ mb: 2 }}
+                    value={p.phone || ""}
+                    onChange={(e) =>
+                      updatePassenger(index, "phone", e.target.value)
+                    }
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Address"
+                    value={p.address || ""}
+                    onChange={(e) =>
+                      updatePassenger(index, "address", e.target.value)
+                    }
+                  />
+                </>
+              )}
+
+              {type && type !== "ADULT" && (
+                <TextField
+                  select
+                  fullWidth
+                  label="Guardian"
+                  value={p.guardian_index ?? ""}
+                  onChange={(e) =>
+                    updatePassenger(
+                      index,
+                      "guardian_index",
+                      Number(e.target.value)
+                    )
+                  }
+                >
+                  {adultIndices.map((i) => (
+                    <MenuItem key={i} value={i}>
+                      {passengers[i]?.full_name || `Adult ${i + 1}`}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            </Box>
+          );
+        })}
       </DialogContent>
 
       <Divider />
@@ -330,6 +368,83 @@ const sanitizedPassengers = passengers.map((p) => {
           {loading ? "Processing..." : "Proceed to Payment"}
         </Button>
       </DialogActions>
+     <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        disablePortal   // 🔥 THIS IS THE KEY LINE
+        anchorOrigin={{
+          vertical: "bottom",
+          horizontal: "left",
+        }}
+        transformOrigin={{
+          vertical: "top",
+          horizontal: "left",
+        }}
+        onClose={() => {
+          setAnchorEl(null);
+          setActivePassengerIndex(null);
+        }}
+      >
+
+      {savedPassengers.map((sp, i) => (
+        <MenuItem
+          key={i}
+          onClick={() => {
+            if (activePassengerIndex !== null) {
+              autofillPassenger(activePassengerIndex, sp);
+            }
+            setAnchorEl(null);
+            setActivePassengerIndex(null);
+          }}
+        >
+          {sp.full_name}
+        </MenuItem>
+      ))}
+    </Menu>
+
+  <Dialog
+    open={showAutofillDialog}
+    onClose={() => setShowAutofillDialog(false)}
+    maxWidth="xs"
+    fullWidth
+  >
+    <DialogTitle>Select Saved Passenger</DialogTitle>
+
+    <DialogContent dividers>
+      {savedPassengers.length === 0 ? (
+        <Box sx={{ py: 2 }}>No saved passengers</Box>
+      ) : (
+        savedPassengers.map((sp, i) => (
+          <Box
+            key={i}
+            sx={{
+              p: 1.5,
+              cursor: "pointer",
+              borderRadius: 1,
+              "&:hover": { backgroundColor: "#f5f5f5" }
+            }}
+            onClick={() => {
+              if (activePassengerIndex !== null) {
+                autofillPassenger(activePassengerIndex, sp);
+              }
+              setShowAutofillDialog(false);
+              setActivePassengerIndex(null);
+            }}
+          >
+            <strong>{sp.full_name}</strong>
+            <div style={{ fontSize: 12, color: "#666" }}>
+              {sp.dob}
+            </div>
+          </Box>
+        ))
+      )}
+    </DialogContent>
+
+    <DialogActions>
+      <Button onClick={() => setShowAutofillDialog(false)}>Cancel</Button>
+    </DialogActions>
+  </Dialog>
+
     </Dialog>
   );
 }

@@ -13,8 +13,9 @@ export default function Signup() {
   const handleSubmit = async () => {
     try {
       await api.post("/users/signup", form);
-      alert("Signup successful!");
+      alert("Signup successful!");      
       navigate("/login");
+      localStorage.setItem("open_upload_passenger_details", "true");
     } catch (err: any) {
       alert(err.response.data.detail);
     }
