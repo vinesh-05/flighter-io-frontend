@@ -223,7 +223,13 @@ export default function PassengerDetailsModal({
         }
       );
 
-      window.location.href = stripeRes.data.checkout_url;
+      // 🔥 Opens Stripe in a NEW tab instead of redirecting the current page
+      window.open(stripeRes.data.checkout_url, '_blank');
+      
+      // Stop the loading spinner and close the modal in the original tab
+      setLoading(false);
+      onClose();
+
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       alert(

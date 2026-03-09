@@ -25,6 +25,7 @@ interface Booking {
   status: string;
   has_ticket: boolean;
   created_at: string;
+  passenger_id: number;
 }
 
 export default function MyBookings() {
@@ -51,10 +52,10 @@ export default function MyBookings() {
     fetchBookings();
   }, []);
 
-  const downloadTicket = async (bookingId: number) => {
+  const downloadTicket = async (PassengerId: number) => {
     try {
       const res = await api.get(
-        `/bookings/${bookingId}/ticket`,
+        `/bookings/${PassengerId}/ticket`,
         { responseType: "blob" }
       );
 
@@ -220,7 +221,7 @@ export default function MyBookings() {
                   variant="outlined"
                   size="small"
                   startIcon={<FileDownloadOutlinedIcon />}
-                  onClick={() => downloadTicket(b.id)}
+                  onClick={() => downloadTicket(b.passenger_id)}
                   sx={{
                     borderRadius: "50px",
                     textTransform: "none",
