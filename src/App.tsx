@@ -5,6 +5,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Chat from "./pages/Chat";
 import Success from "./pages/Success";
 import MyBookings from "./pages/myBookings";
+import ResetPassword from "./pages/ResetPassword";
+import ForgotPassword from "./pages/ForgotPassword";
 export default function App() {
   return (
     <BrowserRouter>
@@ -12,7 +14,8 @@ export default function App() {
       <Routes>
         {/* Redirect root route */}
         <Route path="/" element={<Navigate to="/login" />} />
-
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/forgot-password" element={<ForgotPassword/>}/>
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route

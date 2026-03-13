@@ -122,9 +122,18 @@ export default function Login() {
             <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "#000", textTransform: "uppercase", letterSpacing: "0.5px" }}>
               Password
             </Typography>
-            <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "#2563eb", cursor: "pointer", "&:hover": { textDecoration: "underline" } }}>
-              FORGOT?
-            </Typography>
+          <Typography
+            onClick={() => window.open("/forgot-password", "_blank")}
+            sx={{
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              color: "#2563eb",
+              cursor: "pointer",
+              "&:hover": { textDecoration: "underline" }
+            }}
+          >
+            FORGOT?
+          </Typography>
           </Box>
           <OutlinedInput
             fullWidth
