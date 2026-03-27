@@ -6,11 +6,17 @@ import {
 import { useNavigate } from "react-router-dom";
 import { Virtuoso } from "react-virtuoso";
 import type { VirtuosoHandle } from "react-virtuoso";
+
+// Icons
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import AirplaneTicketIcon from "@mui/icons-material/AirplaneTicket";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome"; 
+import StarIcon from "@mui/icons-material/Star";
+import HotelIcon from "@mui/icons-material/Hotel";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 import api from "../api/axios";
 import FlightCardList from "../components/FlightCardList";
@@ -42,12 +48,13 @@ export default function Chat() {
   const [bookingConfig, setBookingConfig] = useState<BookingConfig>({
     tripType: "one_way", adults: 1, children: 0, infants: 0
   });
-
+  const [shouldPoll, setShouldPoll] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [messages, setMessages] = useState<any[]>([]);
+  const lastMessageIdRef = useRef(0);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
 
@@ -55,11 +62,40 @@ export default function Chat() {
   const username = localStorage.getItem("name") || "Guest User";
   const email = localStorage.getItem("email") || "";
 
-  useEffect(() => {
-    api.get("/chat/history")
-      .then(res => setMessages(res.data))
-      .catch(() => setMessages([]));
-  }, []);
+useEffect(() => {
+  async function loadInitialMessages() {
+    try {
+      const historyRes = await api.get("/chat/history");
+
+      const historyMsgs = historyRes.data.map((m: any) => ({
+        sender: m.sender,
+        text: m.text
+      }));
+
+      const newRes = await api.get("/chat/messages?last_id=0");
+
+      const newMsgs = newRes.data.map((m: any) => ({
+        sender: m.role === "agent" ? "bot" : "user",
+        text: m.content,
+        id: m.id
+      }));
+
+      setMessages([...historyMsgs, ...newMsgs]);
+
+      // ✅ ONLY set lastMessageId from ChatMessage
+      if (newRes.data.length > 0) {
+        lastMessageIdRef.current =
+          newRes.data[newRes.data.length - 1].id;
+      }
+
+    } catch (err) {
+      console.error(err);
+      setMessages([]);
+    }
+  }
+
+  loadInitialMessages();
+}, []);
 
   useEffect(() => {
     const shouldOpen = localStorage.getItem("open_upload_passenger_details");
@@ -81,14 +117,51 @@ export default function Chat() {
   const bookFlightByClick = (flight: any) => {
     setSelectedFlight(flight);
     setBookingConfigOpen(true);
+
   };
+
+
+useEffect(() => {
+  const interval = setInterval(() => {
+    const flag = localStorage.getItem("waiting_for_hotel_prompt");
+
+    if (flag === "true") {
+      console.log("🔄 Detected payment flow → start polling");
+
+      setShouldPoll(true);
+
+      localStorage.removeItem("waiting_for_hotel_prompt");
+    }
+  }, 1000); // check every second
+
+  return () => clearInterval(interval);
+}, []);
+
+useEffect(() => {
+  if (!shouldPoll) return;
+
+  const interval = setInterval(fetchNewMessages, 2000);
+
+  // safety stop (in case webhook delays)
+  const timeout = setTimeout(() => {
+    setShouldPoll(false);
+  }, 20000);
+
+  return () => {
+    clearInterval(interval);
+    clearTimeout(timeout);
+  };
+}, [shouldPoll]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
     const userMessage = input;
     setInput("");
     
-    setMessages((prev) => [...prev, { sender: "user", text: userMessage }]);
+    setMessages((prev) => [
+  ...prev,
+  { sender: "user", text: userMessage, temp: true }
+]);
     setIsTyping(true);
 
     try {
@@ -97,7 +170,11 @@ export default function Chat() {
 
       let botText = bot_response;
       if (typeof bot_response === "object") {
-        botText = `PAYMENT_DATA_JSON::${JSON.stringify(bot_response)}`;
+        if (bot_response.city && bot_response.hotels) {
+          botText = `HOTEL_DATA_JSON::${JSON.stringify(bot_response)}`;
+        } else {
+          botText = `PAYMENT_DATA_JSON::${JSON.stringify(bot_response)}`;
+        }
       }
       if (flights && flights.length > 0) {
         botText = `FLIGHT_DATA_JSON::${JSON.stringify({ origin, destination, date, flights })}`;
@@ -110,6 +187,46 @@ export default function Chat() {
       setIsTyping(false);
     }
   };
+
+ async function fetchNewMessages() {
+  try {
+    const safeLastId = Math.max(0, lastMessageIdRef.current - 5);
+
+    console.log("Polling with last_id:", safeLastId);
+
+    const res = await api.get(
+      `/chat/messages?last_id=${safeLastId}`
+    );
+
+    console.log("API response:", res.data);
+
+    if (res.data.length > 0) {
+      const newMsgs = res.data.map((m: any) => ({
+        sender: m.role === "agent" ? "bot" : "user",
+        text: m.content,
+        message: m.content,
+        id: m.id
+      }));
+
+      setMessages(prev => {
+        const filtered = newMsgs.filter(
+          (m: any) => !prev.some((p: any) => p.id === m.id)
+        );
+        return [...prev, ...filtered];
+      });
+
+      // ✅ update lastMessageId properly
+      lastMessageIdRef.current =
+        res.data[res.data.length - 1].id;
+
+    }
+    else {
+  setShouldPoll(false); // ✅ stop only when no new messages
+}
+  } catch (err) {
+    console.error("Polling error:", err);
+  }
+}
 
   const renderFlightData = (text: string) => {
     let data;
@@ -124,6 +241,156 @@ export default function Chat() {
             </Typography>
           )}
           <FlightCardList data={data} onSelect={(f: any) => bookFlightByClick(f)} />
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderHotelData = (text: string) => {
+    let data;
+    try {
+      data = JSON.parse(text.replace("HOTEL_DATA_JSON::", ""));
+    } catch {
+      return null;
+    }
+
+    // 🔥 SAFETY CHECK: Ensure hotels is actually an array before mapping
+    const hotelsList = Array.isArray(data?.hotels) ? data.hotels : [];
+
+    // Helper to generate stars
+    const renderStars = (rating: number) => {
+      const stars = [];
+      for (let i = 0; i < 5; i++) {
+        stars.push(
+          <StarIcon 
+            key={i} 
+            sx={{ 
+              fontSize: "1rem", 
+              color: i < Math.floor(rating) ? "#f5b041" : "#e0e0e0" 
+            }} 
+          />
+        );
+      }
+      return stars;
+    };
+
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+        <Box sx={{ width: '100%', maxWidth: '850px', mt: 1, px: { xs: 2, md: 0 } }}>
+          
+          <Typography
+            variant="subtitle2"
+            sx={{ color: "#5f6368", mb: 1.5, ml: 1, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px", fontSize: "0.75rem" }}
+          >
+            Recommended Hotels in {data?.city || "this area"}
+          </Typography>
+
+          {/* 🔥 Graceful Fallback if no hotels are found */}
+          {hotelsList.length === 0 ? (
+            <Paper elevation={0} sx={{ p: 3, border: "1px dashed #cbd5e1", borderRadius: "16px", bgcolor: "#f8fafc", textAlign: "center" }}>
+              <Typography sx={{ color: "#64748b", fontWeight: 500 }}>
+                No hotels available for this destination right now.
+              </Typography>
+            </Paper>
+          ) : (
+            hotelsList.map((hotel: any, i: number) => {
+              const parsedPrice = Number(String(hotel.price_per_night).replace(/[^\d.]/g, ""));
+              const ratingNum = Number(hotel.rating) || 4.5; // Fallback if API lacks rating
+
+              return (
+                <Paper
+                  key={i}
+                  elevation={0}
+                  sx={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "16px",
+                    mb: 3,
+                    overflow: "hidden",
+                    backgroundColor: "#ffffff",
+                    transition: "all 0.2s ease-in-out",
+                    "&:hover": {
+                      borderColor: "#b3d4ff",
+                      boxShadow: "0 8px 24px rgba(25, 118, 210, 0.08)",
+                      transform: "translateY(-2px)"
+                    }
+                  }}
+                >
+                  {/* --- HEADER SECTION --- */}
+                  <Box sx={{ p: 2.5, borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 800, color: "#1976d2", fontSize: "1.2rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        {hotel.name}
+                      </Typography>
+                      <Box sx={{ display: "flex", alignItems: "center", mt: 1, gap: 1 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", mr: 0.5 }}>
+                          {renderStars(ratingNum)}
+                        </Box>
+                        <Chip 
+                          label={ratingNum.toFixed(1)} 
+                          size="small"
+                          sx={{ bgcolor: "#1976d2", color: "white", fontWeight: 700, borderRadius: "8px", height: "22px", fontSize: "0.75rem" }} 
+                        />
+                        <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: "#202124", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          Very Good
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <HotelIcon sx={{ color: "#94a3b8", fontSize: 36, display: { xs: "none", sm: "block" } }} />
+                  </Box>
+
+                  {/* --- BODY SECTION --- */}
+                  <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, p: 2.5, gap: { xs: 2, sm: 0 } }}>
+                    
+                    {/* Left: Location & Details */}
+                    <Box sx={{ flex: 1, borderRight: { sm: "1px dashed #cbd5e1" }, pr: { sm: 3 }, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                      <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", mb: 0.5 }}>
+                        Location
+                      </Typography>
+                      <Typography sx={{ fontWeight: 800, color: "#202124", fontSize: "1.1rem", textTransform: "uppercase", mb: 1 }}>
+                        {data.city || "Local"} Area
+                      </Typography>
+                      <MapOutlinedIcon sx={{ color: "#94a3b8", fontSize: 28 }} />
+                    </Box>
+
+                    {/* Right: Price & Action */}
+                    <Box sx={{ flex: 1, pl: { sm: 3 }, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: { xs: "flex-start", sm: "flex-end" } }}>
+                      <Box sx={{ display: "flex", alignItems: "baseline", gap: 0.5, mb: 0.5 }}>
+                        <Typography sx={{ fontSize: "1.7rem", fontWeight: 800, color: "#0A2540", lineHeight: 1 }}>
+                          ₹{parsedPrice ? parsedPrice.toLocaleString("en-IN") : "N/A"}
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ fontSize: "0.85rem", color: "#64748b", fontWeight: 500, mb: 2 }}>
+                        per night
+                      </Typography>
+                      
+                      <Button 
+                        variant="contained" 
+                        endIcon={<OpenInNewIcon />}
+                        onClick={() => window.open(hotel.booking_link, "_blank")}
+                        sx={{ 
+                          borderRadius: "50px", 
+                          bgcolor: "#1976d2", 
+                          textTransform: "uppercase", 
+                          fontWeight: 700, 
+                          px: 3,
+                          py: 1,
+                          fontSize: "0.85rem",
+                          boxShadow: "0 4px 14px rgba(25, 118, 210, 0.25)",
+                          "&:hover": {
+                            bgcolor: "#1565c0",
+                            boxShadow: "0 6px 20px rgba(25, 118, 210, 0.35)",
+                          }
+                        }}
+                      >
+                        Open Link
+                      </Button>
+                    </Box>
+
+                  </Box>
+                </Paper>
+              );
+            })
+          )}
         </Box>
       </Box>
     );
@@ -206,6 +473,7 @@ export default function Chat() {
               const cleanedText = paymentUrl ? text.replace(paymentUrl, "") : text;
               
               if (text.startsWith("FLIGHT_DATA_JSON::")) return renderFlightData(text);
+              if (text.startsWith("HOTEL_DATA_JSON::")) return renderHotelData(text);
 
               return (
                 <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
@@ -229,9 +497,18 @@ export default function Chat() {
                       </Typography>
 
                       {paymentUrl && (
-                        <Button variant="contained" color="warning" href={paymentUrl} target="_blank" fullWidth sx={{ mt: 1.5, borderRadius: "20px", fontWeight: 'bold', textTransform: 'none' }}>
-                          Complete Payment
-                        </Button>
+                       <Button
+                        variant="contained"
+                        color="warning"
+                        onClick={() => {
+                          setShouldPoll(true); // ✅ START polling immediately
+                          window.open(paymentUrl, "_blank");
+                        }}
+                        fullWidth
+                        sx={{ mt: 1.5, borderRadius: "20px", fontWeight: 'bold', textTransform: 'none' }}
+                      >
+                        Complete Payment
+                      </Button>
                       )}
                     </Box>
                   </Box>

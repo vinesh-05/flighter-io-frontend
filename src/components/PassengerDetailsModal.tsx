@@ -222,7 +222,8 @@ export default function PassengerDetailsModal({
           booking_id: bookingRes.data.booking_id
         }
       );
-
+      // 🔥 mark that we are waiting for hotel prompt
+      localStorage.setItem("waiting_for_hotel_prompt", "true");
       // 🔥 Opens Stripe in a NEW tab instead of redirecting the current page
       window.open(stripeRes.data.checkout_url, '_blank');
       
